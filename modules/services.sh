@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# services.sh - Servis sertleştirme modülü
+# Gereksiz/tehlikeli servisleri kapatır (saldırı yüzeyini küçültür)
+#
+
+echo -e "${GREEN}[*] Servis sertleştirme modülü çalışıyor...${NC}"
+
+# Kapatılacak TEHLİKELİ/GEREKSİZ servisler
+# Bunlar bilinen güvensiz veya modern sistemde gereksiz servisler
+DANGEROUS_SERVICES=(
+    "telnet"        # şifresiz uzak erişim (SSH varken gereksiz + tehlikeli)
+    "telnetd"
+    "rsh-server"    # eski güvensiz uzak shell
+    "rlogin"
+    "vsftpd"        # FTP - şifresiz, gerekmiyorsa kapat
+    "tftpd"         # trivial FTP - çok güvensiz
+    "xinetd"        # eski servis yöneticisi
+    "nis"           # eski ağ bilgi servisi
+    "rpcbind"       # RPC - sık saldırı hedefi
+    "avahi-daemon"  # ağ keşif servisi (gereksiz bilgi sızdırır)
+    "cups"          # yazıcı servisi (sunucuda gereksiz)
+)
+
+DISABLED_COUNT=0
+
+for service in "${DANGEROUS_SERVICES[@]}"; do
+    # Servis sistemde var mı ve aktif mi kontrol et
+    if systemctl list-unit-files | grep -q "^${service}"; then
+        if systemctl is-active --quiet "$service" 2>/dev/null; then
+            systemctl stop "$service" 2>/dev/null
+            systemctl disable "$service" 2>/dev/null
+            echo "[*] Kapatıldı: $service"
+            DISABLED_COUNT=$((DISABLED_COUNT+1))
+        fi
+    fi
+done
+
+if [ "$DISABLED_COUNT" -eq 0 ]; then
+    echo "[*] Kapatılacak tehlikeli servis bulunamadı (sistem zaten temiz)"
+else
+    echo -e "${GREEN}[+] ${DISABLED_COUNT} tehlikeli servis kapatıldı.${NC}"
+fi
+
+# Çalışan tüm dinleyen servisleri raporla (kullanıcı görsün)
+echo "[*] Şu an dinleyen (açık) servisler:"
+ss -tulnp 2>/dev/null | grep LISTEN | awk '{print "    " $1 " " $5}' | sort -u
+
+echo -e "${GREEN}[+] Servis sertleştirme tamamlandı.${NC}"

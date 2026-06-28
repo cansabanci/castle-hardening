@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# firewall.sh - Firewall sertleştirme modülü
+# ufw tabanlı, defense-in-depth yaklaşımı
+#
+
+echo -e "${GREEN}[*] Firewall modülü çalışıyor...${NC}"
+
+# 1. ufw kurulu mu kontrol et, değilse kur
+if ! command -v ufw &> /dev/null; then
+    echo "[*] ufw kurulu değil, kuruluyor..."
+    apt-get install ufw -y
+fi
+
+# 2. Mevcut kuralları sıfırla (temiz başlangıç)
+ufw --force reset
+
+# 3. VARSAYILAN POLİTİKA: her şeyi reddet (default deny)
+ufw default deny incoming      # gelen: reddet
+ufw default allow outgoing     # giden: izin ver
+
+# 4. Sadece gerekli portlara izin ver (rate limit ile)
+# SSH - brute-force koruması için 'limit' kullan (dakikada 6 denemeden fazlasını engeller)
+ufw limit 22/tcp comment 'SSH rate limited'
+
+# Web (gerekiyorsa - yorum satırını kaldır)
+# ufw allow 80/tcp comment 'HTTP'
+# ufw allow 443/tcp comment 'HTTPS'
+
+# 5. Loglama aç (reddedilen bağlantıları kaydet - tespit için)
+ufw logging on
+
+# 5.1 ICMP (ping) flood koruması
+# Ping'lere saniyede sınır koyar - ICMP flood saldırısını engeller
+# ufw before.rules dosyasına rate limit ekliyoruz
+if ! grep -q "icmp-flood-protection" /etc/ufw/before.rules; then
+    sed -i '/# ok icmp codes for INPUT/i # icmp-flood-protection\n-A ufw-before-input -p icmp --icmp-type echo-request -m limit --limit 1/second --limit-burst 5 -j ACCEPT\n-A ufw-before-input -p icmp --icmp-type echo-request -j DROP' /etc/ufw/before.rules
+    echo "[*] ICMP flood koruması eklendi"
+fi
+
+# 5.2 Geçersiz paketleri düşür
+# Bozuk/mantıksız TCP paketlerini reddeder (Teardrop, paket manipülasyonu)
+if ! grep -q "drop-invalid-packets" /etc/ufw/before.rules; then
+    sed -i '/^# End required lines/i # drop-invalid-packets\n-A ufw-before-input -m conntrack --ctstate INVALID -j DROP' /etc/ufw/before.rules
+    echo "[*] Geçersiz paket düşürme eklendi"
+fi
+
+# 5.3 Port tarama tespiti ve loglama
+# Bir IP kısa sürede çok porta dokunursa = tarama davranışı
+# Bu IP'leri yakalar, loglar ve geçici engeller
+if ! grep -q "port-scan-detection" /etc/ufw/before.rules; then
+    sed -i '/^# End required lines/i \
+# port-scan-detection\
+-A ufw-before-input -m conntrack --ctstate NEW -m recent --set --name PORTSCAN\
+-A ufw-before-input -m conntrack --ctstate NEW -m recent --update --seconds 10 --hitcount 10 --name PORTSCAN -j LOG --log-prefix "[PORTSCAN] "\
+-A ufw-before-input -m conntrack --ctstate NEW -m recent --update --seconds 10 --hitcount 10 --name PORTSCAN -j DROP' /etc/ufw/before.rules
+    echo "[*] Port ta
+
+# 6. Firewall'ı etkinleştir
+ufw --force enable
+
+echo -e "${GREEN}[+] Firewall yapılandırıldı (default deny + SSH rate limit).${NC}"
+ufw status verbose
