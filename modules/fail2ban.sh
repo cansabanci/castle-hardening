@@ -44,9 +44,9 @@ maxretry = 5
 enabled = true
 logpath = /var/log/fail2ban.log
 banaction = ufw
-findtime = 1d
+findtime = 600
 maxretry = 2
-bantime = -1
+bantime = 3600
 JAIL
 
 echo "[*] fail2ban yapılandırması yazıldı (jail.d/castle-sshd.local)"

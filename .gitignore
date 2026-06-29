@@ -1,0 +1,10 @@
+castle.conf
+
+# Yedek dosyaları
+*.backup
+*.backup.*
+*.save
+
+# Geçici/log dosyaları
+*.log
+*.tmp

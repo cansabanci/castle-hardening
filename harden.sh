@@ -1,16 +1,19 @@
 #!/bin/bash
-# Castle Hardening Tool
 
-
-# Port tarama tespiti modu:
-#   "IDS"
-#   "IPS"
-SCAN_MODE="IPS"
+SCAN_MODE="IDS"
 
 WHITELIST=""
 
 SCAN_SECONDS=10
 SCAN_HITCOUNT=10
+
+CONFIG_FILE="$(dirname "$0")/castle.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    echo "[*] Yapılandırma yüklendi: castle.conf"
+else
+    echo "[*] castle.conf bulunamadı, güvenli varsayılanlar kullanılıyor (SCAN_MODE=$SCAN_MODE)"
+fi
 
 # ============================================
 
