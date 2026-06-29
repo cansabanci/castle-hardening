@@ -1,13 +1,9 @@
 #!/bin/bash
 #
 # services.sh - Servis sertleştirme modülü
-# Gereksiz/tehlikeli servisleri kapatır (saldırı yüzeyini küçültür)
-#
 
 echo -e "${GREEN}[*] Servis sertleştirme modülü çalışıyor...${NC}"
 
-# Kapatılacak TEHLİKELİ/GEREKSİZ servisler
-# Bunlar bilinen güvensiz veya modern sistemde gereksiz servisler
 DANGEROUS_SERVICES=(
     "telnet"        # şifresiz uzak erişim (SSH varken gereksiz + tehlikeli)
     "telnetd"
@@ -25,15 +21,18 @@ DANGEROUS_SERVICES=(
 DISABLED_COUNT=0
 
 for service in "${DANGEROUS_SERVICES[@]}"; do
-    # Servis sistemde var mı ve aktif mi kontrol et
     if systemctl list-unit-files | grep -q "^${service}"; then
         if systemctl is-active --quiet "$service" 2>/dev/null; then
-            systemctl stop "$service" 2>/dev/null
-            systemctl disable "$service" 2>/dev/null
-            echo "[*] Kapatıldı: $service"
-            DISABLED_COUNT=$((DISABLED_COUNT+1))
-        fi
+            if [ "$DRY_RUN" = "true" ]; then
+                echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $service durdurulacak ve devre dışı bırakılacak"
+            else
+                systemctl stop "$service" 2>/dev/null
+                systemctl disable "$service" 2>/dev/null
+                echo "[*] Kapatıldı: $service"
+           fi
+           DISABLED_COUNT=$((DISABLED_COUNT+1))
     fi
+  fi
 done
 
 if [ "$DISABLED_COUNT" -eq 0 ]; then
