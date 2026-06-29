@@ -27,36 +27,50 @@ if [ "$WEB_SERVER" != "apache2" ]; then
 fi
 
 if ! apache2ctl -M 2>/dev/null | grep -q "security2_module"; then
-    echo "[*] ModSecurity kuruluyor..."
-    apt-get install libapache2-mod-security2 -y
-    a2enmod security2
-fi
-
-if [ ! -d "/usr/share/modsecurity-crs/rules" ]; then
-    echo "[*] OWASP Core Rule Set kuruluyor..."
-    apt-get install modsecurity-crs -y
-fi
-
-MODSEC_CONF="/etc/modsecurity/modsecurity.conf"
-if [ ! -f "$MODSEC_CONF" ]; then
-    cp /etc/modsecurity/modsecurity.conf-recommended "$MODSEC_CONF" 2>/dev/null
-fi
-
-if [ -f "$MODSEC_CONF" ]; then
-    sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' "$MODSEC_CONF"
-    echo "[*] ModSecurity engelleme modu aktif (SecRuleEngine On)"
-fi
-
-CRS_SETUP="/etc/modsecurity/crs/crs-setup.conf"
-if [ -f "$CRS_SETUP" ]; then
-    cp "$CRS_SETUP" "${CRS_SETUP}.castle-backup" 2>/dev/null
-    if grep -q "setvar:tx.paranoia_level" "$CRS_SETUP"; then
-        sed -i 's/^#\?\s*setvar:tx.paranoia_level=[0-9]/    setvar:tx.paranoia_level=2/' "$CRS_SETUP"
-        echo "[*] CRS paranoia level 2 ayarlandı (dengeli koruma)"
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: ModSecurity kurulacak + etkinleştirilecek"
+    else
+        echo "[*] ModSecurity kuruluyor..."
+        apt-get install libapache2-mod-security2 -y
+        a2enmod security2
     fi
 fi
 
-if apache2ctl -t 2>/dev/null; then
+if [ ! -d "/usr/share/modsecurity-crs/rules" ]; then
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: OWASP CRS kurulacak"
+    else
+        echo "[*] OWASP Core Rule Set kuruluyor..."
+        apt-get install modsecurity-crs -y
+    fi
+fi
+
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: ModSecurity engelleme modu (SecRuleEngine On)"
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: CRS paranoia level 2 ayarlanacak"
+else
+    MODSEC_CONF="/etc/modsecurity/modsecurity.conf"
+    if [ ! -f "$MODSEC_CONF" ]; then
+        cp /etc/modsecurity/modsecurity.conf-recommended "$MODSEC_CONF" 2>/dev/null
+    fi
+
+    if [ -f "$MODSEC_CONF" ]; then
+        sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' "$MODSEC_CONF"
+        echo "[*] ModSecurity engelleme modu aktif (SecRuleEngine On)"
+    fi
+    CRS_SETUP="/etc/modsecurity/crs/crs-setup.conf"
+    if [ -f "$CRS_SETUP" ]; then
+        cp "$CRS_SETUP" "${CRS_SETUP}.castle-backup" 2>/dev/null
+        if grep -q "setvar:tx.paranoia_level" "$CRS_SETUP"; then
+            sed -i 's/^#\?\s*setvar:tx.paranoia_level=[0-9]/    setvar:tx.paranoia_level=2/' "$CRS_SETUP"
+            echo "[*] CRS paranoia level 2 ayarlandı (dengeli koruma)"
+        fi
+    fi
+fi
+
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: Apache config test edilip restart edilecek"
+elif apache2ctl -t 2>/dev/null; then
     systemctl restart apache2
     echo -e "${GREEN}[+] WAF aktif (ModSecurity + OWASP CRS, paranoia 2).${NC}"
     echo "[*] Web saldırıları (SQLi/XSS/LFI) artık denetleniyor."
