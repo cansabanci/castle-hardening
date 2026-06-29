@@ -15,14 +15,22 @@ if [ ! -f "$SSHD_CONFIG" ]; then
 fi
 
 # Yedek al (her zaman! geri dönebilmek için)
-cp "$SSHD_CONFIG" "${SSHD_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
-echo "[*] sshd_config yedeklendi"
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: sshd_config yedeklenecek"
+else
+    cp "$SSHD_CONFIG" "${SSHD_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
+    echo "[*] sshd_config yedeklendi"
+fi
 
 # Bir ayarı güvenli şekilde set eden yardımcı fonksiyon
 # Ayar varsa değiştirir, yoksa ekler (idempotent)
 set_ssh_option() {
     local key="$1"
     local value="$2"
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} SSH ayarı: $key $value"
+        return
+    fi
     if grep -qE "^#?\s*${key}\s" "$SSHD_CONFIG"; then
         sed -i "s|^#\?\s*${key}\s.*|${key} ${value}|" "$SSHD_CONFIG"
     else
@@ -74,13 +82,17 @@ set_ssh_option "MaxStartups" "10:30:60"
 set_ssh_option "UseDNS" "no"
 
 # 13. Yasal uyarı banner'ı oluştur ve ayarla
-cat > /etc/ssh/castle_banner << 'BANNER'
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: SSH uyarı banner'ı oluşturulacak"
+else
+    cat > /etc/ssh/castle_banner << 'BANNER'
 ***************************************************************
   YETKISIZ ERISIM YASAKTIR
   Bu sistem sadece yetkili kullanicilar icindir.
   Tum baglantilar loglanmakta ve izlenmektedir.
 ***************************************************************
 BANNER
+fi
 set_ssh_option "Banner" "/etc/ssh/castle_banner"
 
 echo -e "${GREEN}[+] SSH sertleştirildi (root login kapalı, deneme limiti, timeout).${NC}"
@@ -88,7 +100,9 @@ echo -e "${RED}[!] NOT: Key authentication için ek adım gerekir. Önce SSH key
 echo -e "${RED}    yüklediğinizden emin olmadan 'PasswordAuthentication no' YAPMAYIN!${NC}"
 
 # Yapılandırmayı test et (hatalıysa SSH'ı yeniden başlatma!)
-if sshd -t 2>/dev/null; then
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: sshd config test edilip SSH servisi reload edilecek"
+elif sshd -t 2>/dev/null; then
     echo "[*] sshd config geçerli, servis yeniden başlatılıyor..."
     systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
     echo -e "${GREEN}[+] SSH servisi yeniden başlatıldı.${NC}"
