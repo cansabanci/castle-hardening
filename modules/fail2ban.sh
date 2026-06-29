@@ -1,11 +1,6 @@
-[sshd]
-enabled = true
-port = ${SSH_PORT}
-maxretry = 5#!/bin/bash
+#!/bin/bash
 #
 # fail2ban.sh - Brute-force koruması modülü
-# Çok deneme yapan IP'leri otomatik tespit edip banlar (IPS mantığı)
-#
 
 echo -e "${GREEN}[*] fail2ban modülü çalışıyor...${NC}"
 

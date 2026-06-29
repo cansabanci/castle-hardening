@@ -19,7 +19,41 @@ fi
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # renk sıfırla
+
+DRY_RUN="false"
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run)
+            DRY_RUN="true"
+            ;;
+        --apply)
+            DRY_RUN="false"
+            ;;
+        --help|-h)
+            echo "Castle Hardening Tool"
+            echo "Kullanım: sudo ./harden.sh [SEÇENEK]"
+            echo ""
+            echo "Seçenekler:"
+            echo "  --dry-run   Hiçbir değişiklik yapmadan ne yapılacağını gösterir"
+            echo "  --apply     Değişiklikleri uygular (varsayılan)"
+            echo "  --help      Bu yardımı gösterir"
+            exit 0
+            ;;
+    esac
+done
+
+run() {
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $*"
+    else
+        "$@"
+    fi
+}
+
+export DRY_RUN
+export -f run
 
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[!] Bu script root yetkisi gerektirir. 'sudo ./harden.sh' ile çalıştırın.${NC}"
@@ -27,6 +61,9 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo -e "${GREEN}=== Castle Hardening Tool ===${NC}"
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "${YELLOW}[!] DRY-RUN MODU: Hiçbir değişiklik yapılmayacak, sadece gösterilecek.${NC}"
+fi
 echo "[*] Savunma başlıyor..."
 
 source ./modules/firewall.sh
@@ -36,4 +73,9 @@ source ./modules/services.sh
 source ./modules/waf.sh
 source ./modules/audit.sh
 
-echo -e "${GREEN}[+] Savunma tamamlandı.${NC}"
+if [ "$DRY_RUN" = "true" ]; then
+    echo -e "${YELLOW}[!] DRY-RUN tamamlandı. Hiçbir değişiklik YAPILMADI.${NC}"
+    echo -e "${YELLOW}    Uygulamak için: sudo ./harden.sh --apply${NC}"
+else
+    echo -e "${GREEN}[+] Savunma tamamlandı.${NC}"
+fi
