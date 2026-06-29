@@ -1,4 +1,7 @@
-#!/bin/bash
+[sshd]
+enabled = true
+port = ${SSH_PORT}
+maxretry = 5#!/bin/bash
 #
 # fail2ban.sh - Brute-force koruması modülü
 # Çok deneme yapan IP'leri otomatik tespit edip banlar (IPS mantığı)
@@ -6,35 +9,35 @@
 
 echo -e "${GREEN}[*] fail2ban modülü çalışıyor...${NC}"
 
-# fail2ban kurulu mu, değilse kur
 if ! command -v fail2ban-server &> /dev/null; then
     echo "[*] fail2ban kurulu değil, kuruluyor..."
     apt-get install fail2ban -y
 fi
 
-# Yerel yapılandırma dosyası oluştur (jail.local)
-# NOT: jail.conf'a değil jail.local'a yazıyoruz — güncellemelerde ezilmesin
-cat > /etc/fail2ban/jail.local << 'JAIL'
+JAIL_DIR="/etc/fail2ban/jail.d"
+CASTLE_JAIL="${JAIL_DIR}/castle-sshd.local"
+mkdir -p "$JAIL_DIR"
+
+if [ -f "$CASTLE_JAIL" ]; then
+    cp "$CASTLE_JAIL" "${CASTLE_JAIL}.backup.$(date +%Y%m%d_%H%M%S)"
+fi
+
+SSH_PORT=$(sshd -T 2>/dev/null | awk '/^port / {print $2}' | head -1)
+SSH_PORT=${SSH_PORT:-22}
+echo "[*] SSH portu tespit edildi: $SSH_PORT"
+
+cat > "$CASTLE_JAIL" << JAIL
+
 [DEFAULT]
-# Ban süresi: 1 saat (geçici ban - false positive olursa masum kullanıcı geri döner)
 bantime = 1h
-
-# Bu süre içinde (10 dakika) yapılan denemeler sayılır
 findtime = 10m
-
-# Kaç başarısız denemeden sonra banlansın
 maxretry = 5
-
-# Banlama yöntemi: ufw ile entegre (bizim firewall'ımız)
 banaction = ufw
-
-# Whitelist - bu IP'ler ASLA banlanmaz (kendi IP'lerin, localhost)
 ignoreip = 127.0.0.1/8 ::1
 
-# SSH korumasını aç
 [sshd]
 enabled = true
-port = ssh
+port = ${SSH_PORT}
 maxretry = 5
 
 [recidive]
@@ -46,17 +49,17 @@ maxretry = 2
 bantime = -1
 JAIL
 
-echo "[*] fail2ban yapılandırması oluşturuldu (jail.local)"
+echo "[*] fail2ban yapılandırması yazıldı (jail.d/castle-sshd.local)"
 
-# fail2ban servisini başlat ve boot'ta otomatik aç
 systemctl enable fail2ban 2>/dev/null
-systemctl restart fail2ban
 
-# Durumu kontrol et
-sleep 2
-if systemctl is-active --quiet fail2ban; then
-    echo -e "${GREEN}[+] fail2ban aktif (SSH brute-force koruması açık).${NC}"
+echo "[*] fail2ban yapılandırması test ediliyor..."
+if fail2ban-client -t &>/dev/null; then
+    echo -e "${GREEN}[+] fail2ban yapılandırması geçerli.${NC}"
+    systemctl reload fail2ban 2>/dev/null || systemctl restart fail2ban
+    echo -e "${GREEN}[+] fail2ban yeniden yüklendi (reload).${NC}"
     echo "[*] Ban kuralları: 5 başarısız denemede 1 saat ban"
 else
-    echo -e "${RED}[!] fail2ban başlatılamadı, kontrol edin.${NC}"
+    echo -e "${RED}[!] fail2ban yapılandırma hatası! Değişiklik uygulanmadı.${NC}"
+    return 1
 fi

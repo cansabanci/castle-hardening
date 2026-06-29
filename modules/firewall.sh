@@ -11,17 +11,30 @@ if ! command -v ufw &> /dev/null; then
     apt-get install ufw -y
 fi
 
-ufw --force reset
+CURRENT_INCOMING=$(ufw status verbose 2>/dev/null | grep -oP 'Default: \K\w+' | head -1)
+if [ "$CURRENT_INCOMING" != "deny" ]; then
+    echo "[*] Default incoming politikası 'deny' yapılıyor (mevcut: ${CURRENT_INCOMING:-bilinmiyor})"
+    ufw default deny incoming
+else
+    echo "[*] Default deny zaten ayarlı, korunuyor."
+fi
 
-ufw default deny incoming
-ufw default allow outgoing
+CURRENT_OUTGOING=$(ufw status verbose 2>/dev/null | grep "Default:" | grep -oP '\w+(?= \(outgoing\))' | head -1)
+if [ "$CURRENT_OUTGOING" != "allow" ]; then
+    echo "[*] Default outgoing politikasi 'allow' yapiliyor (mevcut: ${CURRENT_OUTGOING:-bilinmiyor})"
+    ufw default allow outgoing
+else
+    echo "[*] Default outgoing zaten 'allow', korunuyor."
+fi
 
 ufw limit 22/tcp comment 'SSH rate limited'
 
- ufw allow 80/tcp comment 'HTTP'
- ufw allow 443/tcp comment 'HTTPS'
+ufw allow 80/tcp comment 'HTTP'
+ufw allow 443/tcp comment 'HTTPS'
 
 ufw logging on
+
+
 
 # ICMP (ping) flood koruması
 if ! grep -q "icmp-flood-protection" /etc/ufw/before.rules; then
