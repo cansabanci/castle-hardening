@@ -48,7 +48,7 @@ done
 
 source "$(dirname "$0")/lib/castle_lib.sh"
 export DRY_RUN
-export -f run ensure_rule
+export -f run ensure_rule set_config_option ensure_file safe_service_reload
 
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[!] Bu script root yetkisi gerektirir. 'sudo ./harden.sh' ile çalıştırın.${NC}"
