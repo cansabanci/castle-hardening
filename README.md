@@ -1,34 +1,52 @@
-#  Castle Hardening Tool
+Castle Hardening Tool 🏰
 
-**Defense-in-depth** yaklaşımıyla Linux sunucularını sertleştiren, modüler bir güvenlik otomasyon aracı.
+Defense-in-depth (Derinlemesine Savunma) yaklaşımıyla Linux sunucularını sertleştiren, kurumsal standartlarda yazılmış modüler bir güvenlik otomasyon aracıdır. 
 
-Tek komutla 6 savunma katmanını uygular: firewall, SSH sertleştirme, brute-force koruması, servis sertleştirme, web uygulama güvenlik duvarı (WAF) ve güvenlik denetimi.
+Tek bir komutla sisteminizde 6 farklı savunma katmanını devreye sokar, olası bir olumsuzlukta ise **tek komutla tüm sistemi milimetrik olarak eski orijinal haline döndürebilir (Rollback)**.
 
-##  Özellikler
+---
 
-Castle, saldırı yüzeyini katman katman daraltır. Her modül belirli saldırı türlerini hedefler:
+## 🔥 Temel Özellikler
 
-| Katman | Modül | Kapattığı Saldırılar |
-|--------|-------|---------------------|
-| 1 | **Firewall** (ufw) | Port tarama, exploit, ICMP/SYN flood, port scan (IDS/IPS modlu) |
-| 2 | **SSH Sertleştirme** | Root brute-force, tünelleme, zayıf kripto, oturum istismarı |
-| 3 | **fail2ban** | SSH/servis brute-force (otomatik IP ban) |
-| 4 | **Servis Sertleştirme** | Gereksiz/tehlikeli servisler (Telnet, FTP, rsh...) |
-| 5 | **WAF** (ModSecurity + OWASP CRS) | SQLi, XSS, LFI, command injection |
-| 6 | **Güvenlik Denetimi** | Tüm katmanları doğrular, skor + rapor üretir |
+* **Katmanlı Savunma:** Saldırı yüzeyini katman katman daraltır.
+* **Tam Idempotency:** Sistem yapılandırmasını bozmadan, üst üste güvenle sonsuz kez çalıştırılabilir.
+* **Güvenli Rollback (P0.6):** Yapılan tüm değişiklikleri zaman damgalı (`timestamp`) yedeklerle tek adımda geri alır, sistemde asla çöp bırakmaz.
+* **Dinamik Güvenlik Denetimi:** Kontrol edilen servislerin anlık durumuna göre akıllı ve dinamik raporlama yapar.
 
-##  Kurulum ve Kullanım
+---
+
+## 🛡️ Savunma Katmanları ve Engellediği Saldırılar
+
+| Katman | Modül | Engellediği / Tespit Ettiği Saldırılar |
+| :--- | :--- | :--- |
+| **1** | **Firewall (UFW)** | Port tarama, Exploit denemeleri, ICMP/SYN Flood (IDS/IPS Modlu) |
+| **2** | **SSH Sertleştirme** | Root Brute-Force, Tünelleme istismarları, Zayıf Kripto, Oturum Kesişmeleri |
+| **3** | **Fail2Ban** | SSH/Servis Brute-Force saldırıları (Otomatik akıllı IP ban) |
+| **4** | **Servis Sertleştirme** | Gereksiz/Tehlikeli eski protokoller (Telnet, FTP, rsh, rclogin...) |
+| **5** | **WAF (ModSecurity)** | OWASP Top 10 (SQLi, XSS, LFI, Command Injection) - Paranoia Level 2 |
+| **6** | **Güvenlik Denetimi** | Tüm katmanların atomik doğrulaması, Güvenlik Skoru + Kalıcı Raporlama |
+
+---
+
+## 🚀 Kurulum ve Kullanım
 
 ```bash
-# Projeyi klonla
-git clone https://github.com/cansabanci/castle-hardening.git
+1. Projeyi Klonlayın ve Klasöre Geçin
+git clone [https://github.com/cansabanci/castle-hardening.git](https://github.com/cansabanci/castle-hardening.git)
 cd castle-hardening
 
 # Çalıştırılabilir yap
 chmod +x harden.sh modules/*.sh
 
-# Root yetkisiyle çalıştır
-sudo ./harden.sh
+# 1. DRY-RUN MODE (Simülasyon - Sisteme dokunmadan ne yapacağını gösterir)
+sudo ./harden.sh --dry-run
+
+# 2. APPLY MODE (Canlı Mod - Tüm güvenlik zırhlarını sisteme giydirir)
+sudo ./harden.sh --apply
+
+# 3. ROLLBACK MODE (Geri Alma - Sistemi sıkılaştırma öncesindeki orijinal haline döndürür)
+sudo ./harden.sh --rollback
+
 ```
 
 Araç idempotenttir — birden fazla kez güvenle çalıştırılabilir.
@@ -48,36 +66,30 @@ SCAN_HITCOUNT=10       # Tarama eşiği (bu sayıda bağlantı = tarama)
 
 - Linux (Debian/Ubuntu/Kali tabanlı)
 - Root yetkisi
-- WAF katmanı için: Apache web sunucusu (opsiyonel — yoksa otomatik atlanır)
+- WAF katmanı için: Web sunucusu (opsiyonel — yoksa otomatik atlanır)
 
 
 
 ##  Proje Yapısı
 
 castle-hardening/
-
-├── harden.sh              # Ana script (modülleri çağırır)
-
-├── README.md
-
+├── harden.sh           # Ana yönetim merkezi (Parametreleri parse eder ve modülleri çağırır)
+├── castle.conf         # Merkezi konfigürasyon dosyası
+├── README.md           # Dokümantasyon
+├── lib/
+│   └── castle_lib.sh   # POSIX uyumlu, atomik dosya yazma ve yedekleme kütüphanesi
 └── modules/
-
-├── firewall.sh        # Katman 1
-
-├── ssh.sh             # Katman 2
-
-├── fail2ban.sh        # Katman 3
-
-├── services.sh        # Katman 4
-
-├── waf.sh             # Katman 5
-
-└── audit.sh           # Katman 6
+    ├── firewall.sh     # Katman 1: Ağ ve Port Güvenliği
+    ├── ssh.sh          # Katman 2: Uzaktan Erişim Sertleştirme
+    ├── fail2ban.sh     # Katman 3: Brute-Force Engelleyici
+    ├── services.sh     # Katman 4: Servis ve Port Sıkılaştırma
+    ├── waf.sh          # Katman 5: Web Uygulama Güvenlik Duvarı (OWASP CRS)
+    └── audit.sh        # Katman 6: Dinamik Doğrulama ve Raporlama
 
 
 ## ⚠️ Uyarı
 
-Bu araç sistemde önemli güvenlik değişiklikleri yapar (SSH ayarları, firewall kuralları). Üretim sistemlerinde çalıştırmadan önce test ortamında deneyin. SSH key authentication'a geçmeden `PasswordAuthentication no` yapmayın — kendinizi sistemden kilitleyebilirsiniz.
+Bu araç sistem genelinde kritik konfigürasyon değişiklikleri yapar. Üretim (Production) ortamlarında çalıştırmadan önce kesinlikle bir test labında simüle edilmelidir. SSH modülü anahtar tabanlı kimlik doğrulamayı (Key Authentication) zorunlu kılacak altyapıyı hazırlar; kendi anahtarınızı sunucuya eklemeden bağlantı izinlerini tamamen kapatmamanız (kendinizi sistem dışı bırakmamanız) önemle tavsiye edilir.
 
 ## 📜 Lisans
 
