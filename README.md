@@ -70,8 +70,9 @@ SCAN_HITCOUNT=10       # Tarama eşiği (bu sayıda bağlantı = tarama)
 
 
 
-##  Proje Yapısı
+## 📁 Proje Yapısı
 
+```text
 castle-hardening/
 ├── harden.sh           # Ana yönetim merkezi (Parametreleri parse eder ve modülleri çağırır)
 ├── castle.conf         # Merkezi konfigürasyon dosyası
@@ -79,13 +80,13 @@ castle-hardening/
 ├── lib/
 │   └── castle_lib.sh   # POSIX uyumlu, atomik dosya yazma ve yedekleme kütüphanesi
 └── modules/
-    ├── firewall.sh     # Katman 1: Ağ ve Port Güvenliği
-    ├── ssh.sh          # Katman 2: Uzaktan Erişim Sertleştirme
-    ├── fail2ban.sh     # Katman 3: Brute-Force Engelleyici
-    ├── services.sh     # Katman 4: Servis ve Port Sıkılaştırma
+    ├── firewall.sh     # Katman 1: Ağ ve Port Güvenliği (UFW / Iptables)
+    ├── ssh.sh          # Katman 2: Uzaktan Erişim Sıkılaştırma
+    ├── fail2ban.sh     # Katman 3: Otomatik Brute-Force Engelleyici
+    ├── services.sh     # Katman 4: Gereksiz Servis ve Port Kapatma
     ├── waf.sh          # Katman 5: Web Uygulama Güvenlik Duvarı (OWASP CRS)
-    └── audit.sh        # Katman 6: Dinamik Doğrulama ve Raporlama
-
+    └── audit.sh        # Katman 6: Dinamik Doğrulama ve Sıkılaştırma Raporlama
+```
 
 ## ⚠️ Uyarı
 
