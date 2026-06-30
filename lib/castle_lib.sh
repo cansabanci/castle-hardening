@@ -1,81 +1,95 @@
 #!/bin/bash
 #
+# lib/castle_lib.sh
+#
 
-run() {
+castle_run() {
     local desc="$1"
     shift
-    if [ "$DRY_RUN" = "true" ]; then
+
+    if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $desc"
     else
         "$@"
     fi
 }
 
-ensure_rule() {
+castle_ensure_rule() {
     local etiket="$1"
     local aciklama="$2"
     local anchor="$3"
     local content="$4"
     local rules_file="/etc/ufw/before.rules"
 
-    if grep -q "$etiket" "$rules_file" 2>/dev/null; then
+    if grep -Fq -- "$etiket" "$rules_file" 2>/dev/null; then
         return 0
     fi
 
-    if [ "$DRY_RUN" = "true" ]; then
+    if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $aciklama"
     else
-        sed -i "/${anchor}/i # ${etiket}\n${content}" "$rules_file"
+        sed -i "\|${anchor}|i # ${etiket}\n${content}" "$rules_file"
         echo "[*] $aciklama eklendi"
     fi
 }
 
-set_config_option() {
+castle_set_config_option() {
     local file="$1"
     local key="$2"
     local value="$3"
-    if [ "$DRY_RUN" = "true" ]; then
+
+    if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Ayar: $key $value"
         return 0
     fi
-    if grep -qE "^#?\s*${key}\s" "$file"; then
-        sed -i "s|^#\?\s*${key}\s.*|${key} ${value}|" "$file"
+
+    if grep -qE "^[[:space:]]*#?[[:space:]]*${key}[[:space:]]" "$file" 2>/dev/null; then
+        sed -i "s|^[[:space:]]*#\?[[:space:]]*${key}[[:space:]].*|${key} ${value}|" "$file"
     else
         echo "${key} ${value}" >> "$file"
     fi
 }
 
-ensure_file() {
+castle_ensure_file() {
     local file="$1"
     local aciklama="$2"
     local content="$3"
-    if [ "$DRY_RUN" = "true" ]; then
+    local mode="${4:-0644}"
+    local owner="${5:-root:root}"
+
+    if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $aciklama"
         return 0
     fi
-    printf '%s\n' "$content" > "$file"
+
+    local tmp
+    tmp="$(mktemp /tmp/castle_file.XXXXXX)"
+
+    printf '%s\n' "$content" > "$tmp"
+
+    install -o "${owner%:*}" -g "${owner#*:}" -m "$mode" "$tmp" "$file"
+
+    rm -f "$tmp"
     echo "[*] $aciklama"
 }
 
-safe_service_reload() {
+castle_safe_service_reload() {
     local service="$1"
-    local test_cmd="$2"
-    local action="${3:-reload}"
+    local action="${2:-reload}"
+    shift 2
 
-    if [ "$DRY_RUN" = "true" ]; then
+    if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $service test edilip $action edilecek"
         return 0
     fi
 
-    # Test komutu varsa çalıştır (config geçerli mi?)
-    if [ -n "$test_cmd" ]; then
-        if ! $test_cmd 2>/dev/null; then
-            echo -e "${RED}[!] $service config hatası! Değişiklik uygulanmadı.${NC}"
+    if [ $# -gt 0 ]; then
+        if ! "$@"; then
+            echo -e "${RED}[!] $service konfigürasyon testi başarısız! $action iptal edildi.${NC}"
             return 1
         fi
     fi
 
-    systemctl "$action" "$service" 2>/dev/null || systemctl restart "$service" 2>/dev/null
-    echo -e "${GREEN}[+] $service servisi $action edildi.${NC}"
-    return 0
+    systemctl "$action" "$service"
+    echo -e "${GREEN}[+] $service $action edildi.${NC}"
 }

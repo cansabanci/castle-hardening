@@ -1,9 +1,7 @@
 #!/bin/bash
 
 SCAN_MODE="IDS"
-
 WHITELIST=""
-
 SCAN_SECONDS=10
 SCAN_HITCOUNT=10
 
@@ -45,10 +43,10 @@ for arg in "$@"; do
     esac
 done
 
-
 source "$(dirname "$0")/lib/castle_lib.sh"
 export DRY_RUN
-export -f run ensure_rule set_config_option ensure_file safe_service_reload
+
+export -f castle_run castle_ensure_rule castle_set_config_option castle_ensure_file castle_safe_service_reload
 
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[!] Bu script root yetkisi gerektirir. 'sudo ./harden.sh' ile çalıştırın.${NC}"

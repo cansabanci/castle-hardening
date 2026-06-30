@@ -1,38 +1,33 @@
 #!/bin/bash
 #
-# services.sh - Servis sertleştirme modülü
+# services.sh
 
 echo -e "${GREEN}[*] Servis sertleştirme modülü çalışıyor...${NC}"
 
 DANGEROUS_SERVICES=(
-    "telnet"        # şifresiz uzak erişim (SSH varken gereksiz + tehlikeli)
+    "telnet"         # Şifresiz uzak erişim
     "telnetd"
-    "rsh-server"    # eski güvensiz uzak shell
+    "rsh-server"     # Eski güvensiz uzak shell
     "rlogin"
-    "vsftpd"        # FTP - şifresiz, gerekmiyorsa kapat
-    "tftpd"         # trivial FTP - çok güvensiz
-    "xinetd"        # eski servis yöneticisi
-    "nis"           # eski ağ bilgi servisi
-    "rpcbind"       # RPC - sık saldırı hedefi
-    "avahi-daemon"  # ağ keşif servisi (gereksiz bilgi sızdırır)
-    "cups"          # yazıcı servisi (sunucuda gereksiz)
+    "vsftpd"         # FTP (şifresiz dosya aktarımı)
+    "tftpd"          # Trivial FTP
+    "xinetd"         # Eski servis yöneticisi
+    "nis"            # Eski ağ bilgi servisi
+    "rpcbind"        # RPC (uzaktan prosedür çağrısı)
+    "avahi-daemon"   # Ağ keşif servisi (mDNS)
+    "cups"           # Yazıcı servisi
 )
 
 DISABLED_COUNT=0
 
 for service in "${DANGEROUS_SERVICES[@]}"; do
-    if systemctl list-unit-files | grep -q "^${service}"; then
+    if systemctl list-unit-files 2>/dev/null | grep -q -- "^${service}"; then
         if systemctl is-active --quiet "$service" 2>/dev/null; then
-            if [ "$DRY_RUN" = "true" ]; then
-                echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $service durdurulacak ve devre dışı bırakılacak"
-            else
-                systemctl stop "$service" 2>/dev/null
-                systemctl disable "$service" 2>/dev/null
-                echo "[*] Kapatıldı: $service"
-           fi
-           DISABLED_COUNT=$((DISABLED_COUNT+1))
+            castle_run "$service durdurulacak ve devre dışı bırakılacak" \
+                systemctl disable --now "$service"
+            DISABLED_COUNT=$((DISABLED_COUNT+1))
+        fi
     fi
-  fi
 done
 
 if [ "$DISABLED_COUNT" -eq 0 ]; then
@@ -41,8 +36,7 @@ else
     echo -e "${GREEN}[+] ${DISABLED_COUNT} tehlikeli servis kapatıldı.${NC}"
 fi
 
-# Çalışan tüm dinleyen servisleri raporla (kullanıcı görsün)
-echo "[*] Şu an dinleyen (açık) servisler:"
-ss -tulnp 2>/dev/null | grep LISTEN | awk '{print "    " $1 " " $5}' | sort -u
+castle_run "Aktif dinleyen (açık) servisler listeleniyor" \
+    ss -tulnp 2>/dev/null | grep LISTEN | awk '{print "    " $1 " " $5}' | sort -u
 
 echo -e "${GREEN}[+] Servis sertleştirme tamamlandı.${NC}"
