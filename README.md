@@ -1,10 +1,10 @@
-# 🏰 Castle Hardening Tool
+#  Castle Hardening Tool
 
 **Defense-in-depth** yaklaşımıyla Linux sunucularını sertleştiren, modüler bir güvenlik otomasyon aracı.
 
 Tek komutla 6 savunma katmanını uygular: firewall, SSH sertleştirme, brute-force koruması, servis sertleştirme, web uygulama güvenlik duvarı (WAF) ve güvenlik denetimi.
 
-## 🎯 Özellikler
+##  Özellikler
 
 Castle, saldırı yüzeyini katman katman daraltır. Her modül belirli saldırı türlerini hedefler:
 
@@ -17,7 +17,7 @@ Castle, saldırı yüzeyini katman katman daraltır. Her modül belirli saldır�
 | 5 | **WAF** (ModSecurity + OWASP CRS) | SQLi, XSS, LFI, command injection |
 | 6 | **Güvenlik Denetimi** | Tüm katmanları doğrular, skor + rapor üretir |
 
-## 🚀 Kurulum ve Kullanım
+##  Kurulum ve Kullanım
 
 ```bash
 # Projeyi klonla
@@ -44,7 +44,7 @@ SCAN_SECONDS=10        # Port tarama tespit penceresi (saniye)
 SCAN_HITCOUNT=10       # Tarama eşiği (bu sayıda bağlantı = tarama)
 ```
 
-## 📋 Gereksinimler
+##  Gereksinimler
 
 - Linux (Debian/Ubuntu/Kali tabanlı)
 - Root yetkisi
@@ -52,7 +52,7 @@ SCAN_HITCOUNT=10       # Tarama eşiği (bu sayıda bağlantı = tarama)
 
 
 
-## 📂 Proje Yapısı
+##  Proje Yapısı
 
 castle-hardening/
 
