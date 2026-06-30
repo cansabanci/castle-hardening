@@ -93,3 +93,27 @@ castle_safe_service_reload() {
     systemctl "$action" "$service"
     echo -e "${GREEN}[+] $service $action edildi.${NC}"
 }
+
+castle_restore_file() {
+    local target_file="$1"
+    local aciklama="$2"
+
+    local latest_backup
+    latest_backup=$(ls -t "${target_file}.backup."* 2>/dev/null | head -n 1)
+
+    if [ -z "$latest_backup" ] && [ -f "${target_file}.castle-backup" ]; then
+        latest_backup="${target_file}.castle-backup"
+    fi
+
+    if [ -z "$latest_backup" ] || [ ! -f "$latest_backup" ]; then
+        echo -e "${YELLOW}[*] $target_file için geçerli bir yedek bulunamadı, atlanıyor.${NC}"
+        return 0
+    fi
+
+    if [ "${DRY_RUN:-false}" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} Geri Yüklenecek: $latest_backup -> $target_file"
+    else
+        cp "$latest_backup" "$target_file"
+        echo -e "${GREEN}[✓] $aciklama geri yüklendi (${latest_backup##*/})${NC}"
+    fi
+}

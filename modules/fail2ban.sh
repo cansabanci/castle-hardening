@@ -2,26 +2,47 @@
 #
 # fail2ban.sh
 
-echo -e "${GREEN}[*] fail2ban modülü çalışıyor...${NC}"
-
-# Fail2Ban Paket Kontrolü ve Kurulumu
-if ! command -v fail2ban-server &> /dev/null; then
-    castle_run "fail2ban paketi kurulacak" apt-get install fail2ban -y
-fi
-
 JAIL_DIR="/etc/fail2ban/jail.d"
 CASTLE_JAIL="${JAIL_DIR}/castle-sshd.local"
-mkdir -p "$JAIL_DIR"
 
-if [ -f "$CASTLE_JAIL" ]; then
-    castle_run "Mevcut fail2ban config yedeklenecek" cp "$CASTLE_JAIL" "${CASTLE_JAIL}.backup.$(date +%Y%m%d_%H%M%S)"
-fi
+# ==============================================================================
+# ROLLBACK MODU
+# ==============================================================================
+if [ "${MODE:-HARDEN}" = "ROLLBACK" ]; then
+    echo -e "${YELLOW}[*] fail2ban sertleştirmesi geri alınıyor...${NC}"
 
-SSH_PORT=$(sshd -T 2>/dev/null | awk '/^port / {print $2}' | head -1)
-SSH_PORT=${SSH_PORT:-22}
-echo "[*] SSH portu tespit edildi: $SSH_PORT"
+    if [ -f "$CASTLE_JAIL" ]; then
+        castle_restore_file "$CASTLE_JAIL" "fail2ban orijinal jail yapılandırması"
 
-CASTLE_JAIL_CONTENT="[DEFAULT]
+        if [ -f "$CASTLE_JAIL" ]; then
+            castle_run "Üretilen castle-sshd.local dosyası temizleniyor" rm -f "$CASTLE_JAIL"
+        fi
+    fi
+
+    castle_safe_service_reload "fail2ban" "reload" fail2ban-client -t
+
+# ==============================================================================
+# HARDEN MODU
+# ==============================================================================
+else
+    echo -e "${GREEN}[*] fail2ban modülü çalışıyor...${NC}"
+
+    # Fail2Ban Paket Kontrolü ve Kurulumu
+    if ! command -v fail2ban-server &> /dev/null; then
+        castle_run "fail2ban paketi kurulacak" apt-get install fail2ban -y
+    fi
+
+    mkdir -p "$JAIL_DIR"
+
+    if [ -f "$CASTLE_JAIL" ]; then
+        castle_run "Mevcut fail2ban config yedeklenecek" cp "$CASTLE_JAIL" "${CASTLE_JAIL}.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+
+    SSH_PORT=$(sshd -T 2>/dev/null | awk '/^port / {print $2}' | head -1)
+    SSH_PORT=${SSH_PORT:-22}
+    echo "[*] SSH portu tespit edildi: $SSH_PORT"
+
+    CASTLE_JAIL_CONTENT="[DEFAULT]
 bantime = 1h
 findtime = 10m
 maxretry = 5
@@ -41,8 +62,9 @@ findtime = 600
 maxretry = 2
 bantime = 3600"
 
-castle_ensure_file "$CASTLE_JAIL" "fail2ban yapılandırması yazıldı (jail.d/castle-sshd.local)" "$CASTLE_JAIL_CONTENT" "0644" "root:root"
+    castle_ensure_file "$CASTLE_JAIL" "fail2ban yapılandırması yazıldı (jail.d/castle-sshd.local)" "$CASTLE_JAIL_CONTENT" "0644" "root:root"
 
-castle_run "fail2ban boot'ta etkinleştirilecek" systemctl enable fail2ban
+    castle_run "fail2ban boot'ta etkinleştirilecek" systemctl enable fail2ban
 
-castle_safe_service_reload "fail2ban" "reload" fail2ban-client -t
+    castle_safe_service_reload "fail2ban" "reload" fail2ban-client -t
+fi

@@ -2,6 +2,7 @@
 #
 # audit.sh
 
+
 echo -e "${GREEN}[*] Güvenlik denetim modülü çalışıyor...${NC}"
 
 # Rapor dosyası tanımı
@@ -15,18 +16,22 @@ fi
 PASS=0
 FAIL=0
 
-# Bir kontrolü yapıp sonucu yazan ve raporlayan iç fonksiyon
+# ==============================================================================
+# DİNAMİK BAŞARI/HATA MESAJI
+# ==============================================================================
 check() {
-    local description="$1"
-    local condition="$2"  # "OK" veya "FAIL"
+    local condition="$1"        # "OK" veya "FAIL"
+    local pass_description="$2" # Başarılıysa basılacak cümle
+    local fail_description="$3" # Başarısızsa basılacak cümle
 
     if [ "$condition" = "OK" ]; then
-        echo -e "  ${GREEN}[✓]${NC} $description"
-        echo "[PASS] $description" >> "$REPORT"
+        echo -e "  ${GREEN}[✓]${NC} $pass_description"
+        echo "[PASS] $pass_description" >> "$REPORT"
         PASS=$((PASS+1))
     else
-        echo -e "  ${RED}[✗]${NC} $description"
-        echo "[FAIL] $description" >> "$REPORT"
+        # Başarısızsa artık kafa karıştırmayan olumsuz cümleyi basıyoruz!
+        echo -e "  ${RED}[✗]${NC} $fail_description"
+        echo "[FAIL] $fail_description" >> "$REPORT"
         FAIL=$((FAIL+1))
     fi
 }
@@ -43,46 +48,50 @@ echo "" >> "$REPORT"
 echo ""
 echo -e "${GREEN}--- Güvenlik Kontrolleri ---${NC}"
 
+# ==============================================================================
+# GÜVENLİK KONTROLLERİ
+# ==============================================================================
+
 # 1. Firewall aktif mi?
 if ufw status 2>/dev/null | grep -Fq -- "Status: active"; then
-    check "Firewall (ufw) aktif" "OK"
+    check "OK" "Firewall (ufw) aktif" "Firewall (ufw) AKTİF DEĞİL"
 else
-    check "Firewall (ufw) aktif" "FAIL"
+    check "FAIL" "Firewall (ufw) aktif" "Firewall (ufw) AKTİF DEĞİL"
 fi
 
 # 2. SSH root login kapalı mı?
 if grep -qE "^[[:space:]]*PermitRootLogin[[:space:]]+no" /etc/ssh/sshd_config 2>/dev/null; then
-    check "SSH root login kapalı" "OK"
+    check "OK" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
 else
-    check "SSH root login kapalı" "FAIL"
+    check "FAIL" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
 fi
 
 # 3. SSH boş şifre yasak mı?
 if grep -qE "^[[:space:]]*PermitEmptyPasswords[[:space:]]+no" /etc/ssh/sshd_config 2>/dev/null; then
-    check "SSH boş şifre yasak" "OK"
+    check "OK" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
 else
-    check "SSH boş şifre yasak" "FAIL"
+    check "FAIL" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
 fi
 
 # 4. fail2ban çalışıyor mu?
 if systemctl is-active --quiet fail2ban 2>/dev/null; then
-    check "fail2ban aktif (brute-force koruması)" "OK"
+    check "OK" "fail2ban aktif (brute-force koruması)" "fail2ban AKTİF DEĞİL"
 else
-    check "fail2ban aktif (brute-force koruması)" "FAIL"
+    check "FAIL" "fail2ban aktif (brute-force koruması)" "fail2ban AKTİF DEĞİL"
 fi
 
 # 5. Tehlikeli servisler kapalı mı?
 if ! systemctl is-active --quiet telnet 2>/dev/null && ! systemctl is-active --quiet telnetd 2>/dev/null; then
-    check "Telnet servisi kapalı" "OK"
+    check "OK" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
 else
-    check "Telnet servisi kapalı" "FAIL"
+    check "FAIL" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
 fi
 
 # 6. SSH deneme limiti var mı?
 if grep -qE "^[[:space:]]*MaxAuthTries[[:space:]]+[1-5]" /etc/ssh/sshd_config 2>/dev/null; then
-    check "SSH deneme limiti ayarlı" "OK"
+    check "OK" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
 else
-    check "SSH deneme limiti ayarlı" "FAIL"
+    check "FAIL" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
 fi
 
 # Açık portları güvenli şekilde rapora bağlama
