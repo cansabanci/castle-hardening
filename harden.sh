@@ -21,6 +21,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # renk sıfırla
+export GREEN RED YELLOW NC
 
 DRY_RUN="false"
 for arg in "$@"; do
@@ -44,16 +45,10 @@ for arg in "$@"; do
     esac
 done
 
-run() {
-    if [ "$DRY_RUN" = "true" ]; then
-        echo -e "  ${YELLOW}[DRY-RUN]${NC} Yapılacak: $*"
-    else
-        "$@"
-    fi
-}
 
+source "$(dirname "$0")/lib/castle_lib.sh"
 export DRY_RUN
-export -f run
+export -f run ensure_rule
 
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[!] Bu script root yetkisi gerektirir. 'sudo ./harden.sh' ile çalıştırın.${NC}"
