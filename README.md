@@ -56,7 +56,7 @@ Araç idempotenttir — birden fazla kez güvenle çalıştırılabilir.
 `harden.sh` içindeki YAPILANDIRMA bölümünden ayarları değiştirebilirsiniz:
 
 ```bash
-SCAN_MODE="IDS"        # "IDS" (sadece tespit) veya "IPS" (tespit + engelle)
+SCAN_MODE="IDS"        # "IDS" (sadece tespit) 
 WHITELIST=""           # Asla engellenmeyecek IP'ler (örn: "192.168.1.10")
 SCAN_SECONDS=10        # Port tarama tespit penceresi (saniye)
 SCAN_HITCOUNT=10       # Tarama eşiği (bu sayıda bağlantı = tarama)
