@@ -1,4 +1,4 @@
-Castle Hardening Tool 🏰
+Castle Hardening Tool 
 
 Defense-in-depth (Derinlemesine Savunma) yaklaşımıyla Linux sunucularını sertleştiren, kurumsal standartlarda yazılmış modüler bir güvenlik otomasyon aracıdır. 
 
@@ -6,7 +6,7 @@ Tek bir komutla sisteminizde 6 farklı savunma katmanını devreye sokar, olası
 
 ---
 
-## 🔥 Temel Özellikler
+##  Temel Özellikler
 
 * **Katmanlı Savunma:** Saldırı yüzeyini katman katman daraltır.
 * **Tam Idempotency:** Sistem yapılandırmasını bozmadan, üst üste güvenle sonsuz kez çalıştırılabilir.
@@ -15,7 +15,7 @@ Tek bir komutla sisteminizde 6 farklı savunma katmanını devreye sokar, olası
 
 ---
 
-## 🛡️ Savunma Katmanları ve Engellediği Saldırılar
+##  Savunma Katmanları ve Engellediği Saldırılar
 
 | Katman | Modül | Engellediği / Tespit Ettiği Saldırılar |
 | :--- | :--- | :--- |
@@ -28,7 +28,7 @@ Tek bir komutla sisteminizde 6 farklı savunma katmanını devreye sokar, olası
 
 ---
 
-## 🚀 Kurulum ve Kullanım
+##  Kurulum ve Kullanım
 
 ```bash
 1. Projeyi Klonlayın ve Klasöre Geçin
@@ -51,7 +51,7 @@ sudo ./harden.sh --rollback
 
 Araç idempotenttir — birden fazla kez güvenle çalıştırılabilir.
 
-## ⚙️ Yapılandırma
+##  Yapılandırma
 
 `harden.sh` içindeki YAPILANDIRMA bölümünden ayarları değiştirebilirsiniz:
 
