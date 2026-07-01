@@ -53,7 +53,7 @@ Araç idempotenttir — birden fazla kez güvenle çalıştırılabilir.
 
 ##  Yapılandırma
 
-`harden.sh` içindeki YAPILANDIRMA bölümünden ayarları değiştirebilirsiniz:
+`cp castle.conf.example castle.conf` içindeki YAPILANDIRMA bölümünden ayarları değiştirebilirsiniz:
 
 ```bash
 SCAN_MODE="IDS"        # "IDS" (sadece tespit) 
@@ -98,6 +98,6 @@ MIT License
 
 ## 👤 Yazar
 
-**Can Sabancı** — [GitHub](https://github.com/cansabanci) · [LinkedIn](www.linkedin.com/in/can-sabancı-540ba026a)
+**Can Sabancı** — [GitHub](https://github.com/cansabanci) · [LinkedIn](https://www.linkedin.com/in/can-sabancı-540ba026a/)
 
 
