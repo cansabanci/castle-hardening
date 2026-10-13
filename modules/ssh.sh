@@ -49,7 +49,8 @@ else
 
     # Tünelleme ve Forwarding Kısıtlamaları
     castle_set_config_option "$SSHD_CONFIG" "X11Forwarding" "no"
-    castle_set_config_option "$SSHD_CONFIG" "Protocol" "2"
+    # Not: "Protocol 2" OpenSSH 7.4'ten beri kullanılmıyor (SSHv1 desteği
+    # kaldırıldı); modern sürümlerde uyarı üretir, bu yüzden yazılmıyor.
     castle_set_config_option "$SSHD_CONFIG" "AllowTcpForwarding" "no"
     castle_set_config_option "$SSHD_CONFIG" "AllowAgentForwarding" "no"
     castle_set_config_option "$SSHD_CONFIG" "PermitTunnel" "no"
@@ -79,5 +80,12 @@ else
     echo -e "${RED}[!] NOT: Key authentication için ek adım gerekir. Önce SSH key'inizi${NC}"
     echo -e "${RED}    yüklediğinizden emin olmadan 'PasswordAuthentication no' YAPMAYIN!${NC}"
 
-    castle_safe_service_reload "ssh" "restart" sshd -t
+    # Test başarısız olursa bozuk konfigürasyonu yerinde BIRAKMA: bir sonraki
+    # yeniden başlatmada SSH hiç açılmaz ve sunucuya erişim kaybedilir.
+    if ! castle_safe_service_reload "ssh" "restart" sshd -t; then
+        if [ "${DRY_RUN:-false}" != "true" ] && [ -f "$SSHD_RUN_BACKUP" ]; then
+            cp -p "$SSHD_RUN_BACKUP" "$SSHD_CONFIG"
+            echo -e "${RED}[!] sshd_config bu çalıştırmadan önceki haline geri döndürüldü.${NC}"
+        fi
+    fi
 fi
