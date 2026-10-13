@@ -73,9 +73,16 @@ castle_ensure_file() {
     echo "[*] $aciklama"
 }
 
+# Kullanım: castle_safe_service_reload <servis> <eylem> <test komutu...>
+# Test komutu ZORUNLUDUR: konfigürasyon doğrulanmadan servis yeniden başlatılmaz.
 castle_safe_service_reload() {
+    if [ $# -lt 3 ]; then
+        echo -e "${RED}[!] castle_safe_service_reload: '${1:-?}' için test komutu verilmedi, işlem reddedildi.${NC}" >&2
+        return 1
+    fi
+
     local service="$1"
-    local action="${2:-reload}"
+    local action="$2"
     shift 2
 
     if [ "${DRY_RUN:-false}" = "true" ]; then
@@ -83,14 +90,15 @@ castle_safe_service_reload() {
         return 0
     fi
 
-    if [ $# -gt 0 ]; then
-        if ! "$@"; then
-            echo -e "${RED}[!] $service konfigürasyon testi başarısız! $action iptal edildi.${NC}"
-            return 1
-        fi
+    if ! "$@"; then
+        echo -e "${RED}[!] $service konfigürasyon testi başarısız! $action iptal edildi.${NC}" >&2
+        return 1
     fi
 
-    systemctl "$action" "$service"
+    if ! systemctl "$action" "$service"; then
+        echo -e "${RED}[!] $service $action başarısız oldu.${NC}" >&2
+        return 1
+    fi
     echo -e "${GREEN}[+] $service $action edildi.${NC}"
 }
 
