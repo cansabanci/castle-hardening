@@ -1,8 +1,25 @@
+# Castle Hardening Tool yapılandırması
+# Kullanım: cp castle.conf.example castle.conf
+# Not: castle.conf root olarak çalıştırılır; root'a ait olmalı ve başkaları
+#      tarafından yazılabilir olmamalıdır (chmod 600 castle.conf).
 
+# Port tarama tespiti modu:
+#   IDS = sadece tespit ve log
+#   IPS = tespit ve engelleme
 SCAN_MODE="IDS"
-	
+
+# WAF (ModSecurity) modu. Belirtilmezse SCAN_MODE'u izler.
+#   IDS = SecRuleEngine DetectionOnly (sadece log; yanlış pozitifleri görmek için önerilen başlangıç)
+#   IPS = SecRuleEngine On (saldırı isteklerini engeller)
+WAF_MODE="IDS"
+
+# OWASP CRS paranoia seviyesi (1-4). Arttıkça daha çok saldırı yakalanır,
+# ama yanlış pozitif de artar.
+PARANOIA_LEVEL=2
+
+# Asla engellenmeyecek IP'ler (boşlukla ayrılmış), örn: "192.168.1.10 10.0.0.5"
 WHITELIST=""
 
+# Port tarama tespit penceresi (saniye) ve eşiği (bu sürede bu kadar yeni bağlantı = tarama)
 SCAN_SECONDS=10
-
 SCAN_HITCOUNT=10
