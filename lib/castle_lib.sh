@@ -109,15 +109,25 @@ castle_ensure_file() {
         return 0
     fi
 
+    # Geçici dosya hedefle AYNI dizinde oluşturulur: böylece mv atomiktir ve
+    # yarım yazılmış bir dosya asla hedefin yerine geçmez.
     local tmp
-    tmp="$(mktemp /tmp/castle_file.XXXXXX)"
+    if ! tmp="$(mktemp "${file}.castle.XXXXXX" 2>/dev/null)"; then
+        echo -e "${RED}[!] $aciklama başarısız: $(dirname "$file") dizinine yazılamıyor.${NC}" >&2
+        return 1
+    fi
 
-    printf '%s\n' "$content" > "$tmp"
-
-    install -o "${owner%:*}" -g "${owner#*:}" -m "$mode" "$tmp" "$file"
+    if printf '%s\n' "$content" > "$tmp" \
+        && chown "$owner" "$tmp" \
+        && chmod "$mode" "$tmp" \
+        && mv -f "$tmp" "$file"; then
+        echo "[*] $aciklama"
+        return 0
+    fi
 
     rm -f "$tmp"
-    echo "[*] $aciklama"
+    echo -e "${RED}[!] $aciklama başarısız.${NC}" >&2
+    return 1
 }
 
 # Kullanım: castle_safe_service_reload <servis> <eylem> <test komutu...>
