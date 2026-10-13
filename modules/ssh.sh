@@ -30,8 +30,12 @@ if [ "${MODE:-HARDEN}" = "ROLLBACK" ]; then
 else
     echo -e "${GREEN}[*] SSH sertleştirme modülü çalışıyor...${NC}"
 
-    # Gelecekte rollback yapabilme
-    castle_run "sshd_config yedeklenecek" cp "$SSHD_CONFIG" "${SSHD_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
+    # Rollback için Castle'dan önceki orijinal hali (bir kez) sakla
+    castle_backup_original "$SSHD_CONFIG"
+
+    # Bu çalıştırmanın öncesi: test başarısız olursa buna dönülür
+    SSHD_RUN_BACKUP="${SSHD_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
+    castle_run "sshd_config yedeklenecek" cp -p "$SSHD_CONFIG" "$SSHD_RUN_BACKUP"
 
     # Temel Güvenlik Ayarları
     castle_set_config_option "$SSHD_CONFIG" "PermitRootLogin" "no"

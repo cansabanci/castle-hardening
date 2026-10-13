@@ -53,7 +53,7 @@ source "$(dirname "$0")/lib/castle_lib.sh"
 export DRY_RUN
 export MODE
 
-export -f castle_run castle_ensure_rule castle_set_config_option castle_ensure_file castle_safe_service_reload castle_restore_file
+export -f castle_run castle_ensure_rule castle_set_config_option castle_ensure_file castle_safe_service_reload castle_backup_original castle_restore_file
 
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}[!] Bu script root yetkisi gerektirir. 'sudo ./harden.sh' ile çalıştırın.${NC}"

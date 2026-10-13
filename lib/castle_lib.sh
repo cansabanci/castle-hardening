@@ -159,15 +159,38 @@ castle_safe_service_reload() {
     echo -e "${GREEN}[+] $service $action edildi.${NC}"
 }
 
+# Dosyanın Castle'a dokunulmadan önceki halini BİR KEZ yedekler
+# (<dosya>.castle-orig). Sonraki çalıştırmalar bu yedeği ezmez; böylece araç
+# kaç kez çalıştırılırsa çalıştırılsın rollback gerçek orijinale döner.
+castle_backup_original() {
+    local file="$1"
+    local orig="${file}.castle-orig"
+
+    [ -f "$file" ] || return 0
+    [ -f "$orig" ] && return 0
+
+    if [ "${DRY_RUN:-false}" = "true" ]; then
+        echo -e "  ${YELLOW}[DRY-RUN]${NC} Orijinal yedek alınacak: $orig"
+        return 0
+    fi
+
+    cp -p "$file" "$orig" && echo "[*] Orijinal yedek alındı: ${orig##*/}"
+}
+
 castle_restore_file() {
     local target_file="$1"
     local aciklama="$2"
 
-    local latest_backup
-    latest_backup=$(ls -t "${target_file}.backup."* 2>/dev/null | head -n 1)
-
-    if [ -z "$latest_backup" ] && [ -f "${target_file}.castle-backup" ]; then
+    # Öncelik: Castle'dan önceki orijinal yedek. Zaman damgalı yedekler, ikinci
+    # bir çalıştırmadan sonra zaten sertleştirilmiş dosyayı içerebilir; bu
+    # yüzden sadece orijinal yedek yoksa en yenisine düşülür.
+    local latest_backup=""
+    if [ -f "${target_file}.castle-orig" ]; then
+        latest_backup="${target_file}.castle-orig"
+    elif [ -f "${target_file}.castle-backup" ]; then
         latest_backup="${target_file}.castle-backup"
+    else
+        latest_backup=$(ls -t "${target_file}.backup."* 2>/dev/null | head -n 1)
     fi
 
     if [ -z "$latest_backup" ] || [ ! -f "$latest_backup" ]; then
@@ -177,8 +200,10 @@ castle_restore_file() {
 
     if [ "${DRY_RUN:-false}" = "true" ]; then
         echo -e "  ${YELLOW}[DRY-RUN]${NC} Geri Yüklenecek: $latest_backup -> $target_file"
-    else
-        cp "$latest_backup" "$target_file"
+    elif cp -p "$latest_backup" "$target_file"; then
         echo -e "${GREEN}[✓] $aciklama geri yüklendi (${latest_backup##*/})${NC}"
+    else
+        echo -e "${RED}[!] $aciklama geri yüklenemedi.${NC}" >&2
+        return 1
     fi
 }
