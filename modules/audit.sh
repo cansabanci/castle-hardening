@@ -75,18 +75,32 @@ else
     check "FAIL" "Firewall (ufw) aktif" "Firewall (ufw) AKTİF DEĞİL"
 fi
 
-# 2. SSH root login kapalı mı?
-if sshd_effective permitrootlogin no; then
-    check "OK" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+if [ -z "$SSHD_EFFECTIVE" ]; then
+    # sshd yok veya ayarları okunamıyor: SSH kontrolleri "başarısız" sayılırsa
+    # SSH çalışmayan bir sunucuda yanlış alarm (false positive) üretir.
+    echo -e "  ${YELLOW}[-]${NC} SSH sunucusu bulunamadı veya ayarları okunamadı, SSH kontrolleri atlandı"
+    echo "[SKIP] SSH kontrolleri (sshd -T okunamadı)" >> "$REPORT"
 else
-    check "FAIL" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
-fi
+    # 2. SSH root login kapalı mı?
+    if sshd_effective permitrootlogin no; then
+        check "OK" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+    else
+        check "FAIL" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+    fi
 
-# 3. SSH boş şifre yasak mı?
-if sshd_effective permitemptypasswords no; then
-    check "OK" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
-else
-    check "FAIL" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    # 3. SSH boş şifre yasak mı?
+    if sshd_effective permitemptypasswords no; then
+        check "OK" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    else
+        check "FAIL" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    fi
+
+    # 6. SSH deneme limiti var mı?
+    if sshd_effective maxauthtries "[1-5]"; then
+        check "OK" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
+    else
+        check "FAIL" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
+    fi
 fi
 
 # 4. fail2ban çalışıyor mu?
@@ -101,13 +115,6 @@ if ! systemctl is-active --quiet telnet 2>/dev/null && ! systemctl is-active --q
     check "OK" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
 else
     check "FAIL" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
-fi
-
-# 6. SSH deneme limiti var mı?
-if sshd_effective maxauthtries "[1-5]"; then
-    check "OK" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
-else
-    check "FAIL" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
 fi
 
 # Açık portları güvenli şekilde rapora bağlama
