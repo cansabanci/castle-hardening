@@ -32,7 +32,7 @@ else
         castle_run "fail2ban paketi kurulacak" apt-get install fail2ban -y
     fi
 
-    mkdir -p "$JAIL_DIR"
+    castle_run "$JAIL_DIR dizini oluşturulacak" mkdir -p "$JAIL_DIR"
 
     if [ -f "$CASTLE_JAIL" ]; then
         castle_run "Mevcut fail2ban config yedeklenecek" cp "$CASTLE_JAIL" "${CASTLE_JAIL}.backup.$(date +%Y%m%d_%H%M%S)"
@@ -66,5 +66,7 @@ bantime = 3600"
 
     castle_run "fail2ban boot'ta etkinleştirilecek" systemctl enable fail2ban
 
-    castle_safe_service_reload "fail2ban" "reload" fail2ban-client -t
+    # Yeni kurulmuş ve henüz çalışmayan bir serviste "reload" başarısız olur;
+    # reload-or-restart çalışıyorsa yeniden yükler, çalışmıyorsa başlatır.
+    castle_safe_service_reload "fail2ban" "reload-or-restart" fail2ban-client -t
 fi
