@@ -38,8 +38,19 @@ else
         echo "[*] Default outgoing zaten 'allow', korunuyor."
     fi
 
+    # SSH portu(ları) sshd'nin gerçek konfigürasyonundan okunur. Port 22 sabit
+    # yazılırsa, SSH başka bir portta çalışan sunucuda "default deny" +
+    # "ufw enable" yönetici bağlantısını keser ve sunucuya erişim kaybedilir.
+    SSH_PORTS=$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}' | sort -u)
+    if [ -z "$SSH_PORTS" ]; then
+        SSH_PORTS=22
+        echo -e "${YELLOW}[!] SSH portu sshd -T ile okunamadı, 22 varsayılıyor.${NC}"
+    fi
+
     # Standart Servis İzinleri
-    castle_run "SSH (22) rate-limit kuralı eklenecek" ufw limit 22/tcp comment 'SSH rate limited'
+    for ssh_port in $SSH_PORTS; do
+        castle_run "SSH ($ssh_port) rate-limit kuralı eklenecek" ufw limit "${ssh_port}/tcp" comment 'SSH rate limited'
+    done
     castle_run "HTTP (80) izin kuralı eklenecek" ufw allow 80/tcp comment 'HTTP'
     castle_run "HTTPS (443) izin kuralı eklenecek" ufw allow 443/tcp comment 'HTTPS'
     castle_run "ufw loglama açılacak" ufw logging on

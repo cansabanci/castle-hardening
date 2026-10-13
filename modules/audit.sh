@@ -6,11 +6,23 @@
 echo -e "${GREEN}[*] Güvenlik denetim modülü çalışıyor...${NC}"
 
 # Rapor dosyası tanımı
+# Dry-run raporu mktemp ile oluşturulur (tahmin edilebilir bir /tmp adına root
+# olarak yazmak symlink saldırısına açıktır). Rapor açık portları içerdiği için
+# yalnızca root okuyabilir (umask 077).
 if [ "${DRY_RUN:-false}" = "true" ]; then
-    REPORT="/tmp/castle-audit-dryrun.txt"
+    REPORT="$(mktemp /tmp/castle-audit-dryrun.XXXXXX)"
 else
     REPORT="/var/log/castle-audit-$(date +%Y%m%d_%H%M%S).txt"
+    (umask 077; : > "$REPORT")
 fi
+
+# sshd'nin GERÇEKTE uyguladığı ayarlar (Match/Include dahil). sshd_config'i
+# grep'lemek yanıltıcıdır: bir satır dosyada olsa da bir Match bloğunun
+# içindeyse global olarak geçerli değildir.
+SSHD_EFFECTIVE="$(sshd -T 2>/dev/null)"
+sshd_effective() {   # sshd_effective <anahtar> <değer-regex>
+    printf '%s\n' "$SSHD_EFFECTIVE" | grep -qiE "^$1[[:space:]]+$2\$"
+}
 
 # Sayaçlar
 PASS=0
@@ -40,7 +52,11 @@ check() {
 echo "===== CASTLE GÜVENLİK DENETİM RAPORU =====" > "$REPORT"
 echo "Tarih: $(date)" >> "$REPORT"
 echo "Sistem: $(hostname)" >> "$REPORT"
-echo "Mod: ${DRY_RUN:+"DRY-RUN (Simülasyon)"}" >> "$REPORT"
+if [ "${DRY_RUN:-false}" = "true" ]; then
+    echo "Mod: DRY-RUN (Simülasyon)" >> "$REPORT"
+else
+    echo "Mod: APPLY" >> "$REPORT"
+fi
 [ "${DRY_RUN:-false}" != "true" ] || echo "NOT: Bu rapor dry-run modunda üretilmiştir, değişiklikler henüz gerçek sisteme uygulanmamıştır." >> "$REPORT"
 echo "==========================================" >> "$REPORT"
 echo "" >> "$REPORT"
@@ -59,18 +75,32 @@ else
     check "FAIL" "Firewall (ufw) aktif" "Firewall (ufw) AKTİF DEĞİL"
 fi
 
-# 2. SSH root login kapalı mı?
-if grep -qE "^[[:space:]]*PermitRootLogin[[:space:]]+no" /etc/ssh/sshd_config 2>/dev/null; then
-    check "OK" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+if [ -z "$SSHD_EFFECTIVE" ]; then
+    # sshd yok veya ayarları okunamıyor: SSH kontrolleri "başarısız" sayılırsa
+    # SSH çalışmayan bir sunucuda yanlış alarm (false positive) üretir.
+    echo -e "  ${YELLOW}[-]${NC} SSH sunucusu bulunamadı veya ayarları okunamadı, SSH kontrolleri atlandı"
+    echo "[SKIP] SSH kontrolleri (sshd -T okunamadı)" >> "$REPORT"
 else
-    check "FAIL" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
-fi
+    # 2. SSH root login kapalı mı?
+    if sshd_effective permitrootlogin no; then
+        check "OK" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+    else
+        check "FAIL" "SSH root login kapalı" "SSH ROOT LOGIN AÇIK (GÜVENSİZ)"
+    fi
 
-# 3. SSH boş şifre yasak mı?
-if grep -qE "^[[:space:]]*PermitEmptyPasswords[[:space:]]+no" /etc/ssh/sshd_config 2>/dev/null; then
-    check "OK" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
-else
-    check "FAIL" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    # 3. SSH boş şifre yasak mı?
+    if sshd_effective permitemptypasswords no; then
+        check "OK" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    else
+        check "FAIL" "SSH boş şifre yasak" "SSH BOŞ ŞİFREYE İZİN VERİLİYOR (GÜVENSİZ)"
+    fi
+
+    # 6. SSH deneme limiti var mı?
+    if sshd_effective maxauthtries "[1-5]"; then
+        check "OK" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
+    else
+        check "FAIL" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
+    fi
 fi
 
 # 4. fail2ban çalışıyor mu?
@@ -85,13 +115,6 @@ if ! systemctl is-active --quiet telnet 2>/dev/null && ! systemctl is-active --q
     check "OK" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
 else
     check "FAIL" "Telnet servisi kapalı" "TELNET SERVİSİ AÇIK (TEHLİKELİ)"
-fi
-
-# 6. SSH deneme limiti var mı?
-if grep -qE "^[[:space:]]*MaxAuthTries[[:space:]]+[1-5]" /etc/ssh/sshd_config 2>/dev/null; then
-    check "OK" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
-else
-    check "FAIL" "SSH deneme limiti ayarlı" "SSH DENEME LİMİTİ AYARLANMAMIŞ"
 fi
 
 # Açık portları güvenli şekilde rapora bağlama

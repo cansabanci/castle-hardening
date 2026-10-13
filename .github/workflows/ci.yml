@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sözdizimi kontrolü (bash -n)
+        run: |
+          for f in harden.sh lib/*.sh modules/*.sh tests/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: ShellCheck
+        run: shellcheck -x -S warning harden.sh lib/*.sh modules/*.sh tests/*.sh
+
+      - name: Birim testleri
+        run: bash tests/test_lib.sh

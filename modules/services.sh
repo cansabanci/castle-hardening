@@ -3,7 +3,13 @@
 # services.sh
 
 
-SERVICE_LOG="/tmp/castle_service_states.log"
+# Durum kaydı /tmp yerine root'a ait kalıcı bir dizinde tutulur:
+# - /tmp herkese yazılabilir; root'un tahmin edilebilir bir adla oraya yazması
+#   symlink saldırısına açıktır (ör. dosya /etc/shadow'a link verilmişse
+#   "> dosya" onu sıfırlar).
+# - /tmp yeniden başlatmada silinir; rollback kaydı kaybolurdu.
+STATE_DIR="/var/lib/castle"
+SERVICE_LOG="${STATE_DIR}/service_states.log"
 
 DANGEROUS_SERVICES=(
     "telnet" "telnetd" "rsh-server" "rlogin" "vsftpd" 
@@ -36,17 +42,20 @@ if [ "${MODE:-HARDEN}" = "ROLLBACK" ]; then
 else
     echo -e "${GREEN}[*] Servis sertleştirme modülü çalışıyor...${NC}"
 
-    > "$SERVICE_LOG"
+    if [ "${DRY_RUN:-false}" != "true" ]; then
+        install -d -m 0700 -o root -g root "$STATE_DIR"
+        : > "$SERVICE_LOG"
+    fi
     DISABLED_COUNT=0
 
     for service in "${DANGEROUS_SERVICES[@]}"; do
-        if systemctl list-unit-files 2>/dev/null | grep -q -- "^${service}"; then
+        if systemctl list-unit-files 2>/dev/null | grep -q -- "^${service}\.service"; then
 
             IS_ENABLED=$(systemctl is-enabled "$service" 2>/dev/null)
 
             if systemctl is-active --quiet "$service" 2>/dev/null; then
                 castle_run "$service durdurulacak ve devre dışı bırakılacak" systemctl disable --now "$service"
-                echo "${service}:${IS_ENABLED}" >> "$SERVICE_LOG"
+                [ "${DRY_RUN:-false}" = "true" ] || echo "${service}:${IS_ENABLED}" >> "$SERVICE_LOG"
                 DISABLED_COUNT=$((DISABLED_COUNT+1))
             fi
         fi
@@ -54,13 +63,15 @@ else
 
     if [ "$DISABLED_COUNT" -eq 0 ]; then
         echo "[*] Kapatılacak tehlikeli servis bulunamadı (sistem zaten temiz)"
-        rm -f "$SERVICE_LOG"
+        [ "${DRY_RUN:-false}" = "true" ] || rm -f "$SERVICE_LOG"
     else
         echo -e "${GREEN}[+] ${DISABLED_COUNT} tehlikeli servis kapatıldı.${NC}"
     fi
 fi
 
-castle_run "Aktif dinleyen (açık) servisler listeleniyor" \
-    ss -tulnp 2>/dev/null | grep LISTEN | awk '{print "    " $1 " " $5}' | sort -u
+# Salt okunur bir listeleme; castle_run'a gerek yok. (Önceden pipe castle_run'ın
+# dışında kaldığı için dry-run'da çıktı filtrelenip boş görünüyordu.)
+echo "[*] Aktif dinleyen (açık) servisler:"
+ss -tulnp 2>/dev/null | grep LISTEN | awk '{print "    " $1 " " $5}' | sort -u
 
 echo -e "${GREEN}[+] Servis sertleştirme tamamlandı.${NC}"
