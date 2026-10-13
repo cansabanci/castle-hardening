@@ -33,6 +33,18 @@ castle_ensure_rule() {
     fi
 }
 
+# "Anahtar Değer" biçimindeki konfigürasyon dosyalarında bir ayarı garanti eder.
+#
+# - Ayar, ilk "Match" bloğundan ÖNCE (global bölümde) yazılır. sshd_config'te
+#   dosyanın sonuna eklenen bir ayar, sondaki Match bloğuna ait sayılır ve
+#   global olarak uygulanmaz.
+# - Global bölümdeki eski (yorumlu veya aktif) tanımlar tek bir satırla
+#   değiştirilir; Match bloklarının içine dokunulmaz.
+# - Anahtar karşılaştırması büyük/küçük harf duyarsızdır (sshd ve Apache gibi).
+# - Anahtar ve değer awk'a ENVIRON ile verilir; regex'e hiç girmez, böylece
+#   "|", "&", "\" gibi karakterler dosyayı bozamaz.
+# - Dosya aynı dizinde geçici kopya üzerinden atomik olarak (mv) değiştirilir;
+#   izinler ve sahiplik korunur.
 castle_set_config_option() {
     local file="$1"
     local key="$2"
@@ -43,11 +55,46 @@ castle_set_config_option() {
         return 0
     fi
 
-    if grep -qE "^[[:space:]]*#?[[:space:]]*${key}[[:space:]]" "$file" 2>/dev/null; then
-        sed -i "s|^[[:space:]]*#\?[[:space:]]*${key}[[:space:]].*|${key} ${value}|" "$file"
-    else
-        echo "${key} ${value}" >> "$file"
+    if [ ! -f "$file" ]; then
+        echo -e "${RED}[!] $file bulunamadı, '$key' ayarlanamadı.${NC}" >&2
+        return 1
     fi
+
+    local tmp
+    tmp="$(mktemp "${file}.castle.XXXXXX")" || return 1
+
+    if CASTLE_KEY="$key" CASTLE_VALUE="$value" awk '
+        BEGIN {
+            k = tolower(ENVIRON["CASTLE_KEY"])
+            line = ENVIRON["CASTLE_KEY"] " " ENVIRON["CASTLE_VALUE"]
+        }
+        {
+            if (!in_match && $0 ~ /^[[:space:]]*[Mm][Aa][Tt][Cc][Hh][[:space:]]/) {
+                if (!done) { print line; done = 1 }
+                in_match = 1
+            }
+            if (!in_match) {
+                t = $0
+                sub(/^[[:space:]]*#?[[:space:]]*/, "", t)
+                split(t, f, /[[:space:]]+/)
+                if (tolower(f[1]) == k && t ~ /[[:space:]]/) {
+                    if (!done) { print line; done = 1 }
+                    next
+                }
+            }
+            print
+        }
+        END { if (!done) print line }
+    ' "$file" > "$tmp" \
+        && chmod --reference="$file" "$tmp" \
+        && chown --reference="$file" "$tmp" \
+        && mv -f "$tmp" "$file"; then
+        return 0
+    fi
+
+    rm -f "$tmp"
+    echo -e "${RED}[!] $file içinde '$key' ayarlanamadı.${NC}" >&2
+    return 1
 }
 
 castle_ensure_file() {
